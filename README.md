@@ -222,8 +222,8 @@ npm run seed
 ## 📖 API Documentation
 
 ### Option 1: Interactive Swagger UI (Browser-based)
-When the server is running, navigate directly to:
-👉 **`http://localhost:3000/api-docs`**
+- **Live Production Docs**: 👉 **[`https://automotive-marketplace-production-75ab.up.railway.app/api-docs`](https://automotive-marketplace-production-75ab.up.railway.app/api-docs)**
+- **Local Development**: `http://localhost:3000/api-docs`
 
 Swagger UI provides an interactive web interface where you can inspect schemas, test all endpoints, and execute real queries directly from the browser.
 
@@ -263,5 +263,11 @@ A complete, ready-to-test **Bruno API Collection** is included in the [`/bruno`]
 
 ## 🌐 Deployment
 
-- **Live URL**: `http://<YOUR_DEPLOYED_URL>` *(Update with your live URL, e.g. Render / Railway)*
-- Ready for cloud container deployments (Render, Railway, Fly.io, AWS ECS).
+| Resource | URL |
+| :--- | :--- |
+| **Live Production API** | [`https://automotive-marketplace-production-75ab.up.railway.app`](https://automotive-marketplace-production-75ab.up.railway.app) |
+| **Interactive API Docs (Swagger UI)** | [`https://automotive-marketplace-production-75ab.up.railway.app/api-docs`](https://automotive-marketplace-production-75ab.up.railway.app/api-docs) |
+| **Health Check Endpoint** | [`https://automotive-marketplace-production-75ab.up.railway.app/health`](https://automotive-marketplace-production-75ab.up.railway.app/health) |
+| **Cloud Hosting Platform** | Railway (Container Runtime + Managed MySQL) |
+| **Database Seeding Status** | Seeded with 520 listings, categories & dynamic attributes |
+
