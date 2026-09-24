@@ -1,0 +1,486 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Automotive Marketplace API",
+    "version": "1.0.0",
+    "description": "Production-ready RESTful API for Automotive Marketplace with Hierarchical Categories, Dynamic Filter Attributes, Cursor Pagination, and Full-Text Search. Built for PT Daya Rekadigital Indonesia Technical Assessment."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development Server"
+    }
+  ],
+  "tags": [
+    { "name": "General", "description": "Health check endpoints" },
+    { "name": "Categories", "description": "Hierarchical category tree with materialized paths" },
+    { "name": "Listings", "description": "Core vehicle listings with cursor-based pagination and dynamic sorting" },
+    { "name": "Search & Filters", "description": "Full-text search, autocomplete, and dynamic faceted aggregations" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["General"],
+        "summary": "Health check",
+        "description": "Check if API service is running",
+        "responses": {
+          "200": {
+            "description": "API is healthy",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "ok",
+                  "timestamp": "2026-09-24T07:00:00.000Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "tags": ["Categories"],
+        "summary": "Get full category tree",
+        "description": "Retrieve hierarchical category tree with nested children",
+        "responses": {
+          "200": {
+            "description": "Category tree retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "id": 1,
+                      "parent_id": null,
+                      "name": "Cars",
+                      "slug": "cars",
+                      "path": "/1/",
+                      "level": 0,
+                      "children": [
+                        {
+                          "id": 2,
+                          "parent_id": 1,
+                          "name": "SUV",
+                          "slug": "suv",
+                          "path": "/1/2/",
+                          "level": 1,
+                          "children": [
+                            {
+                              "id": 3,
+                              "parent_id": 2,
+                              "name": "7-Seater",
+                              "slug": "7-seater",
+                              "path": "/1/2/3/",
+                              "level": 2,
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Categories"],
+        "summary": "Create category node",
+        "description": "Create a new category in the tree with automatic materialized path calculation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "slug"],
+                "properties": {
+                  "name": { "type": "string", "example": "Electric SUV" },
+                  "slug": { "type": "string", "example": "electric-suv" },
+                  "parent_id": { "type": "integer", "nullable": true, "example": 2 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Category created successfully"
+          }
+        }
+      }
+    },
+    "/api/categories/{id}": {
+      "get": {
+        "tags": ["Categories"],
+        "summary": "Get single category with its children",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 }
+        ],
+        "responses": {
+          "200": { "description": "Category retrieved" },
+          "404": { "description": "Category not found" }
+        }
+      },
+      "patch": {
+        "tags": ["Categories"],
+        "summary": "Update category",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "Automobiles & Cars" },
+                  "slug": { "type": "string", "example": "automobiles-cars" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Category updated" },
+          "404": { "description": "Category not found" }
+        }
+      }
+    },
+    "/api/categories/{id}/listings": {
+      "get": {
+        "tags": ["Categories"],
+        "summary": "Browse listings scoped to category and all subcategories",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 }, "example": 10 }
+        ],
+        "responses": {
+          "200": { "description": "Subtree listings retrieved" },
+          "404": { "description": "Category not found" }
+        }
+      }
+    },
+    "/api/listings": {
+      "get": {
+        "tags": ["Listings"],
+        "summary": "Browse listings with filters, dynamic sorting + cursor pagination",
+        "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting strategy with stable tie-breaker",
+            "schema": {
+              "type": "string",
+              "enum": ["price_asc", "price_desc", "year_desc", "year_asc", "mileage_asc", "mileage_desc", "latest", "oldest"],
+              "default": "latest"
+            }
+          },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "cursor", "in": "query", "description": "Base64 cursor from previous next_cursor", "schema": { "type": "string" } },
+          { "name": "make", "in": "query", "schema": { "type": "string" }, "example": "Toyota" },
+          { "name": "model", "in": "query", "schema": { "type": "string" }, "example": "Fortuner" },
+          { "name": "categoryId", "in": "query", "schema": { "type": "integer" }, "example": 1 },
+          { "name": "fuel_type", "in": "query", "schema": { "type": "string", "enum": ["petrol", "diesel", "hybrid", "electric"] } },
+          { "name": "transmission", "in": "query", "schema": { "type": "string", "enum": ["automatic", "manual"] } },
+          { "name": "condition", "in": "query", "schema": { "type": "string", "enum": ["new", "used"] } },
+          { "name": "city", "in": "query", "schema": { "type": "string" }, "example": "Jakarta Selatan" },
+          { "name": "min_price", "in": "query", "schema": { "type": "number" }, "example": 200000000 },
+          { "name": "max_price", "in": "query", "schema": { "type": "number" }, "example": 600000000 },
+          { "name": "min_year", "in": "query", "schema": { "type": "integer" }, "example": 2018 },
+          { "name": "max_year", "in": "query", "schema": { "type": "integer" }, "example": 2024 }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listings retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "id": 1,
+                      "title": "Toyota Fortuner 2020 Kondisi Terawat Prima",
+                      "make": "Toyota",
+                      "model": "Fortuner",
+                      "year": 2020,
+                      "price": "350000000.00",
+                      "mileage": 45000,
+                      "condition": "used",
+                      "transmission": "automatic",
+                      "fuel_type": "diesel",
+                      "city": "Jakarta Selatan",
+                      "category_name": "SUV",
+                      "primary_image": "https://images.unsplash.com/photo-1549399542-7e3f8b79c341"
+                    }
+                  ],
+                  "pagination": {
+                    "next_cursor": "eyJzb3J0VmFsIjoiMjAyNi0wOS0yNCIsImlkIjoxLCJzb3J0S2V5IjoibGF0ZXN0In0=",
+                    "has_next_page": true,
+                    "sort": "latest"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Listings"],
+        "summary": "Create a new vehicle listing",
+        "description": "Creates listing with primary images and dynamic EAV category attributes",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["category_id", "title", "make", "model", "year", "price", "transmission", "fuel_type", "city"],
+                "properties": {
+                  "category_id": { "type": "integer", "example": 1 },
+                  "title": { "type": "string", "example": "Toyota Fortuner 2.8 GR Sport 2023" },
+                  "make": { "type": "string", "example": "Toyota" },
+                  "model": { "type": "string", "example": "Fortuner" },
+                  "year": { "type": "integer", "example": 2023 },
+                  "mileage": { "type": "integer", "example": 15000 },
+                  "price": { "type": "number", "example": 580000000 },
+                  "condition": { "type": "string", "enum": ["new", "used"], "example": "used" },
+                  "transmission": { "type": "string", "enum": ["automatic", "manual"], "example": "automatic" },
+                  "fuel_type": { "type": "string", "enum": ["petrol", "diesel", "hybrid", "electric"], "example": "diesel" },
+                  "color": { "type": "string", "example": "Hitam Metalik" },
+                  "city": { "type": "string", "example": "Jakarta Selatan" },
+                  "province": { "type": "string", "example": "DKI Jakarta" },
+                  "images": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "url": { "type": "string", "example": "https://images.unsplash.com/photo-1549399542-7e3f8b79c341" },
+                        "is_primary": { "type": "boolean", "example": true }
+                      }
+                    }
+                  },
+                  "attributes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "attribute_id": { "type": "integer", "example": 1 },
+                        "text_value": { "type": "string", "example": "turbo" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Listing created successfully" }
+        }
+      }
+    },
+    "/api/listings/{id}": {
+      "get": {
+        "tags": ["Listings"],
+        "summary": "Get single listing detail",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 }
+        ],
+        "responses": {
+          "200": { "description": "Listing retrieved successfully" },
+          "404": { "description": "Listing not found" }
+        }
+      },
+      "patch": {
+        "tags": ["Listings"],
+        "summary": "Update listing",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "price": { "type": "number", "example": 540000000 },
+                  "status": { "type": "string", "enum": ["available", "sold", "pending"], "example": "pending" },
+                  "mileage": { "type": "integer", "example": 18000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Listing updated" },
+          "404": { "description": "Listing not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Listings"],
+        "summary": "Soft-delete listing",
+        "description": "Sets status to 'removed' and records deleted_at timestamp",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 }
+        ],
+        "responses": {
+          "200": { "description": "Listing soft-deleted successfully" },
+          "404": { "description": "Listing not found or already deleted" }
+        }
+      }
+    },
+    "/api/listings/search": {
+      "get": {
+        "tags": ["Search & Filters"],
+        "summary": "Full-text + faceted search with combined multi-filters",
+        "description": "Searches via MySQL FULLTEXT index (title, make, model, city) in boolean mode and returns dynamic facet aggregations",
+        "parameters": [
+          { "name": "q", "in": "query", "description": "Search keyword", "schema": { "type": "string" }, "example": "Honda" },
+          { "name": "make", "in": "query", "schema": { "type": "string" }, "example": "Honda" },
+          { "name": "fuel_type", "in": "query", "schema": { "type": "string", "enum": ["petrol", "diesel", "hybrid", "electric"] } },
+          { "name": "transmission", "in": "query", "schema": { "type": "string", "enum": ["automatic", "manual"] } },
+          { "name": "min_price", "in": "query", "schema": { "type": "number" }, "example": 100000000 },
+          { "name": "max_price", "in": "query", "schema": { "type": "number" }, "example": 800000000 },
+          { "name": "min_year", "in": "query", "schema": { "type": "integer" }, "example": 2015 },
+          { "name": "max_year", "in": "query", "schema": { "type": "integer" }, "example": 2024 },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 }, "example": 5 }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results with computed facets",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "count": 5,
+                  "data": [
+                    {
+                      "id": 12,
+                      "title": "Honda Civic RS 2021 Turbo",
+                      "make": "Honda",
+                      "model": "Civic",
+                      "year": 2021,
+                      "price": "475000000.00",
+                      "city": "Jakarta Barat"
+                    }
+                  ],
+                  "facets": {
+                    "makes": [{ "make": "Honda", "count": 18 }],
+                    "fuel_types": [{ "fuel_type": "petrol", "count": 18 }],
+                    "transmissions": [{ "transmission": "automatic", "count": 18 }],
+                    "price_range": { "min": 147000000, "max": 783000000 },
+                    "year_range": { "min": 2014, "max": 2024 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/listings/search/suggest": {
+      "get": {
+        "tags": ["Search & Filters"],
+        "summary": "Autocomplete suggestions (make, model, city)",
+        "parameters": [
+          { "name": "q", "in": "query", "required": true, "description": "Prefix query (min 2 chars)", "schema": { "type": "string" }, "example": "Toy" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestions retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": [
+                    { "suggestion": "Toyota", "type": "make" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/filters": {
+      "get": {
+        "tags": ["Search & Filters"],
+        "summary": "Get all available filter options with vehicle counts (facets)",
+        "responses": {
+          "200": {
+            "description": "Global facets retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": {
+                    "makes": [
+                      { "make": "Toyota", "count": 115 },
+                      { "make": "Honda", "count": 105 }
+                    ],
+                    "fuel_types": [
+                      { "fuel_type": "petrol", "count": 140 },
+                      { "fuel_type": "diesel", "count": 130 }
+                    ],
+                    "transmissions": [
+                      { "transmission": "automatic", "count": 270 },
+                      { "transmission": "manual", "count": 250 }
+                    ],
+                    "metrics": {
+                      "min_price": "120000000.00",
+                      "max_price": "1098000000.00",
+                      "min_year": 2014,
+                      "max_year": 2024
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/filters/{categoryId}": {
+      "get": {
+        "tags": ["Search & Filters"],
+        "summary": "Get category-specific dynamic filter attributes",
+        "parameters": [
+          { "name": "categoryId", "in": "path", "required": true, "schema": { "type": "integer" }, "example": 1 }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category attributes retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "id": 1,
+                      "category_id": 1,
+                      "name": "Fuel Delivery",
+                      "code": "fuel_delivery",
+                      "data_type": "enum",
+                      "is_filterable": 1,
+                      "options": [
+                        { "id": 1, "value": "turbo", "label": "Turbocharged" },
+                        { "id": 2, "value": "na", "label": "Naturally Aspirated" }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
